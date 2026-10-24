@@ -1,0 +1,231 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مكتبتي الدراسية</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Tahoma;background:#f1f5f9;color:#1e293b}
+header{background:#174780;color:white;text-align:center;padding:25px 12px}
+main{max-width:900px;margin:auto;padding:15px}
+.subjects{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+button{font:inherit;cursor:pointer;border:0;border-radius:9px;padding:12px}
+.subject{background:white;color:#174780;border:1px solid #d8e2ef;font-weight:bold}
+.subject.active,.primary{background:#174780;color:white}
+.panel{background:white;padding:16px;border-radius:12px;margin-top:18px}
+.tabs{display:flex;gap:8px;margin:15px 0}
+.tabs button{flex:1;background:#e2e8f0}
+.tabs button.active{background:#174780;color:white}
+input,textarea{width:100%;padding:12px;margin:7px 0 13px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
+textarea{min-height:90px}
+.primary{width:100%}
+.item{background:#f8fafc;border:1px solid #dbe4ee;padding:12px;margin-top:10px;border-radius:9px;overflow-wrap:anywhere}
+.item a{color:#174780}
+.delete{background:#fee2e2;color:#991b1b;margin-top:8px}
+small{color:#64748b}
+@media(min-width:600px){.subjects{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<h1>📚 مكتبتي الدراسية</h1>
+<p>كل ملخصاتك وأسئلتك في مكان واحد</p>
+</header>
+<main>
+<h3>اختر المادة</h3>
+<div class="subjects" id="subjects"></div>
+
+<section class="panel">
+<h2 id="heading">اختر مادة من الأعلى</h2>
+<div class="tabs">
+<button class="active" data-kind="ملخصات">📘 الملخصات</button>
+<button data-kind="أسئلة">📝 الأسئلة</button>
+</div>
+
+<form id="form">
+<label>عنوان المحتوى</label>
+<input id="title" required placeholder="مثال: ملخص الفصل الأول">
+
+<label>اكتب الملخص أو الأسئلة</label>
+<textarea id="content" placeholder="اكتب هنا..."></textarea>
+
+<label>أو اختر ملفًا من جهازك</label>
+<input id="file" type="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png">
+
+<button class="primary">💾 حفظ المحتوى</button>
+</form>
+<p id="message"></p>
+<hr>
+<h3 id="listHeading">المحتوى المحفوظ</h3>
+<div id="list"></div>
+</section>
+</main>
+
+<script>
+const subjects=[
+"قانون","محاسبة","إدارة",
+"مادة تجارية بالإنجليزي","رياضة","اقتصاد","سياسة"
+];
+
+let current="";
+let kind="ملخصات";
+let records=[];
+
+try{
+records=JSON.parse(localStorage.getItem("studyLibrary")||"[]");
+if(!Array.isArray(records))records=[];
+}catch(e){records=[]}
+
+const subjectBox=document.getElementById("subjects");
+const list=document.getElementById("list");
+const message=document.getElementById("message");
+
+subjects.forEach(name=>{
+const b=document.createElement("button");
+b.className="subject";
+b.textContent="📂 "+name;
+b.onclick=()=>{
+current=name;
+document.querySelectorAll(".subject").forEach(x=>
+x.classList.toggle("active",x===b));
+document.getElementById("heading").textContent=name;
+render();
+};
+subjectBox.appendChild(b);
+});
+
+document.querySelectorAll("[data-kind]").forEach(b=>{
+b.onclick=()=>{
+kind=b.dataset.kind;
+document.querySelectorAll("[data-kind]").forEach(x=>
+x.classList.toggle("active",x===b));
+render();
+};
+});
+
+function render(){
+document.getElementById("listHeading").textContent=kind+" "+current;
+list.replaceChildren();
+
+if(!current){
+list.textContent="اختر مادة أولًا.";
+return;
+}
+
+const filtered=records.filter(x=>x.subject===current&&x.kind===kind);
+
+if(!filtered.length){
+list.textContent="لا يوجد محتوى محفوظ حتى الآن.";
+return;
+}
+
+filtered.forEach(item=>{
+const card=document.createElement("div");
+card.className="item";
+
+const title=document.createElement("h3");
+title.textContent=item.title;
+card.appendChild(title);
+
+if(item.content){
+const p=document.createElement("p");
+p.style.whiteSpace="pre-wrap";
+p.textContent=item.content;
+card.appendChild(p);
+}
+
+if(item.fileData){
+const a=document.createElement("a");
+a.href=item.fileData;
+a.download=item.fileName;
+a.textContent="📎 فتح أو تحميل "+item.fileName;
+card.appendChild(a);
+}
+
+const del=document.createElement("button");
+del.className="delete";
+del.textContent="حذف";
+del.onclick=()=>{
+if(!confirm("هل تريد حذف هذا المحتوى؟"))return;
+records=records.filter(x=>x.id!==item.id);
+save();
+render();
+};
+card.appendChild(document.createElement("br"));
+card.appendChild(del);
+list.appendChild(card);
+});
+}
+
+function save(){
+try{
+localStorage.setItem("studyLibrary",JSON.stringify(records));
+return true;
+}catch(e){
+message.textContent="مساحة التخزين ممتلئة. جرّب حذف بعض الملفات.";
+return false;
+}
+}
+
+document.getElementById("form").onsubmit=async e=>{
+e.preventDefault();
+
+if(!current){
+message.textContent="اختار المادة الأول.";
+return;
+}
+
+const title=document.getElementById("title").value.trim();
+const content=document.getElementById("content").value.trim();
+const file=document.getElementById("file").files[0];
+
+if(!title)return;
+
+if(file&&file.size>1.5*1024*1024){
+message.textContent="الملف كبير على التخزين المحلي. اختار ملف أصغر من 1.5 ميجابايت.";
+return;
+}
+
+let fileData="";
+if(file){
+fileData=await new Promise((resolve,reject)=>{
+const reader=new FileReader();
+reader.onload=()=>resolve(reader.result);
+reader.onerror=reject;
+reader.readAsDataURL(file);
+}).catch(()=>null);
+
+if(!fileData){
+message.textContent="تعذرت قراءة الملف.";
+return;
+}
+}
+
+const record={
+id:Date.now()+"-"+Math.random(),
+subject:current,
+kind,
+title,
+content,
+fileName:file?file.name:"",
+fileData
+};
+
+records.unshift(record);
+
+if(!save()){
+records.shift();
+return;
+}
+
+e.target.reset();
+message.textContent="تم الحفظ بنجاح ✅";
+render();
+};
+
+render();
+</script>
+</body>
+</html>
